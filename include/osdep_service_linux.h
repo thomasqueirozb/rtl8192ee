@@ -16,6 +16,12 @@
 #define __OSDEP_LINUX_SERVICE_H_
 
 #include <linux/version.h>
+#include <linux/timer.h>
+/* from_timer() was removed in recent kernels in favor of timer_container_of(). */
+#ifndef from_timer
+#define from_timer(var, callback_timer, timer_fieldname) \
+	container_of(callback_timer, typeof(*var), timer_fieldname)
+#endif
 #include <linux/spinlock.h>
 #include <linux/compiler.h>
 #include <linux/kernel.h>
@@ -309,7 +315,11 @@ __inline static void _set_timer(_timer *ptimer, u32 delay_time)
 
 __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0))
+	*bcancelled = timer_delete_sync(ptimer) == 1 ? 1 : 0;
+#else
 	*bcancelled = del_timer_sync(ptimer) == 1 ? 1 : 0;
+#endif
 }
 
 static inline void _init_workitem(_workitem *pwork, void *pfunc, void *cntx)
